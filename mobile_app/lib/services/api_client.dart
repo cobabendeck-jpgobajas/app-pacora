@@ -21,12 +21,14 @@ class ApiException implements Exception {
 class PrediccionResult {
   final int id;
   final double dosisPredichaMgL;
+  final double? turbiedadEstimadaUnt;
   final String modelo;
   final Map<String, dynamic> features;
 
   PrediccionResult({
     required this.id,
     required this.dosisPredichaMgL,
+    this.turbiedadEstimadaUnt,
     required this.modelo,
     required this.features,
   });
@@ -35,6 +37,9 @@ class PrediccionResult {
     return PrediccionResult(
       id: json['id'] as int,
       dosisPredichaMgL: (json['dosis_predicha_mg_l'] as num).toDouble(),
+      // Campo opcional: si el backend del servidor aun no tiene el modelo
+      // de turbiedad desplegado, esta clave puede no venir o venir null.
+      turbiedadEstimadaUnt: (json['turbiedad_estimada_unt'] as num?)?.toDouble(),
       modelo: json['modelo'] as String,
       features: Map<String, dynamic>.from(json['features'] as Map),
     );

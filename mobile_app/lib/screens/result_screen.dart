@@ -5,6 +5,7 @@ import '../models/muestra.dart';
 import '../services/api_client.dart';
 import '../services/database_service.dart';
 import '../widgets/dose_card.dart';
+import '../widgets/turbidity_card.dart';
 import 'dart:io';
 
 /// Muestra el resultado de la prediccion y permite, mas adelante,
@@ -114,6 +115,10 @@ class _ResultScreenState extends State<ResultScreen> {
                   child: Text('Esta muestra todavía no tiene una predicción (revisa la cola offline).'),
                 ),
               ),
+            if (_muestra.turbiedadEstimadaUnt != null) ...[
+              const SizedBox(height: 12),
+              TurbidityCard(turbiedadUnt: _muestra.turbiedadEstimadaUnt!),
+            ],
             const SizedBox(height: 28),
             if (_muestra.remoteId != null) ...[
               Text(

@@ -13,7 +13,7 @@ class DatabaseService {
   static final DatabaseService instance = DatabaseService._();
 
   static const _dbName = 'app_pacora.db';
-  static const _dbVersion = 1;
+  static const _dbVersion = 2;
   static const table = 'muestras';
 
   Database? _db;
@@ -38,12 +38,24 @@ class DatabaseService {
             creado_en TEXT NOT NULL,
             estado TEXT NOT NULL,
             dosis_predicha_mg_l REAL,
+            turbiedad_estimada_unt REAL,
             modelo TEXT,
             dosis_real_mg_l REAL,
             turbiedad_real_unt REAL,
             error_msg TEXT
           )
         ''');
+      },
+      // v1 -> v2: se agrega turbiedad_estimada_unt (estimacion del modelo,
+      // dato complementario a la dosis). ALTER TABLE conserva las muestras
+      // ya guardadas en el dispositivo; el campo nuevo queda en null para
+      // las filas antiguas.
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute(
+            'ALTER TABLE $table ADD COLUMN turbiedad_estimada_unt REAL',
+          );
+        }
       },
     );
   }

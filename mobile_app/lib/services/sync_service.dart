@@ -57,6 +57,7 @@ class SyncService {
             estado: EstadoMuestra.predicha,
             remoteId: resultado.id,
             dosisPredichaMgL: resultado.dosisPredichaMgL,
+            turbiedadEstimadaUnt: resultado.turbiedadEstimadaUnt,
             modelo: resultado.modelo,
             errorMsg: null,
           );

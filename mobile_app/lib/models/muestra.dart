@@ -22,6 +22,7 @@ class Muestra {
   final DateTime creadoEn;
   final EstadoMuestra estado;
   final double? dosisPredichaMgL;
+  final double? turbiedadEstimadaUnt;
   final String? modelo;
   final double? dosisRealMgL;
   final double? turbiedadRealUnt;
@@ -34,6 +35,7 @@ class Muestra {
     required this.creadoEn,
     required this.estado,
     this.dosisPredichaMgL,
+    this.turbiedadEstimadaUnt,
     this.modelo,
     this.dosisRealMgL,
     this.turbiedadRealUnt,
@@ -47,6 +49,7 @@ class Muestra {
     DateTime? creadoEn,
     EstadoMuestra? estado,
     double? dosisPredichaMgL,
+    double? turbiedadEstimadaUnt,
     String? modelo,
     double? dosisRealMgL,
     double? turbiedadRealUnt,
@@ -59,6 +62,7 @@ class Muestra {
       creadoEn: creadoEn ?? this.creadoEn,
       estado: estado ?? this.estado,
       dosisPredichaMgL: dosisPredichaMgL ?? this.dosisPredichaMgL,
+      turbiedadEstimadaUnt: turbiedadEstimadaUnt ?? this.turbiedadEstimadaUnt,
       modelo: modelo ?? this.modelo,
       dosisRealMgL: dosisRealMgL ?? this.dosisRealMgL,
       turbiedadRealUnt: turbiedadRealUnt ?? this.turbiedadRealUnt,
@@ -74,6 +78,7 @@ class Muestra {
       'creado_en': creadoEn.toIso8601String(),
       'estado': estado.name,
       'dosis_predicha_mg_l': dosisPredichaMgL,
+      'turbiedad_estimada_unt': turbiedadEstimadaUnt,
       'modelo': modelo,
       'dosis_real_mg_l': dosisRealMgL,
       'turbiedad_real_unt': turbiedadRealUnt,
@@ -89,6 +94,7 @@ class Muestra {
       creadoEn: DateTime.parse(map['creado_en'] as String),
       estado: estadoDesdeTexto(map['estado'] as String),
       dosisPredichaMgL: (map['dosis_predicha_mg_l'] as num?)?.toDouble(),
+      turbiedadEstimadaUnt: (map['turbiedad_estimada_unt'] as num?)?.toDouble(),
       modelo: map['modelo'] as String?,
       dosisRealMgL: (map['dosis_real_mg_l'] as num?)?.toDouble(),
       turbiedadRealUnt: (map['turbiedad_real_unt'] as num?)?.toDouble(),

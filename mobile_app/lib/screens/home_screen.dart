@@ -93,6 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onRefresh: _cargarHistorial,
         child: Column(
           children: [
+            _buildBannerVersion(),
             if (_pendientesCount > 0) _buildBannerCola(),
             Expanded(child: _buildLista()),
           ],
@@ -107,6 +108,23 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         icon: const Icon(Icons.add_a_photo),
         label: const Text('Nueva muestra'),
+      ),
+    );
+  }
+
+  /// Marca de version visible, solo para verificar sin ambiguedad que el
+  /// dispositivo esta corriendo esta compilacion (con estimacion de
+  /// turbiedad) y no una version instalada anteriormente. Una vez
+  /// confirmado en produccion, este banner se puede retirar.
+  Widget _buildBannerVersion() {
+    return Container(
+      width: double.infinity,
+      color: Colors.teal.shade700,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: const Text(
+        'BUILD DE PRUEBA: incluye estimación de turbiedad (UNT) — v2',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
       ),
     );
   }
