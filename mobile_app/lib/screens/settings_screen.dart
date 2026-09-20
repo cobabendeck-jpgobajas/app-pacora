@@ -47,13 +47,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _probando = true;
       _resultadoPrueba = null;
     });
-    final ok = await ApiClient().verificarConexion();
+    final error = await ApiClient().probarConexionDetallada();
     if (!mounted) return;
     setState(() {
       _probando = false;
-      _resultadoPrueba = ok
+      _resultadoPrueba = error == null
           ? 'Conexión exitosa con el servidor.'
-          : 'No se pudo conectar. Verifica la dirección y la red.';
+          : 'No se pudo conectar. Detalle técnico: $error';
     });
   }
 
