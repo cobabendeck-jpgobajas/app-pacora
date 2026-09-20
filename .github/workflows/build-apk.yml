@@ -26,6 +26,9 @@ jobs:
           sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA" />\n    <application#' scaffold/android/app/src/main/AndroidManifest.xml
           sed -i 's#<application#<application\n        android:usesCleartextTraffic="true"#' scaffold/android/app/src/main/AndroidManifest.xml
 
+      - name: Verificar AndroidManifest.xml
+        run: cat scaffold/android/app/src/main/AndroidManifest.xml
+
       - name: Instalar dependencias del proyecto
         working-directory: scaffold
         run: flutter pub get
