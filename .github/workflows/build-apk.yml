@@ -37,6 +37,12 @@ jobs:
           # Agrega el permiso de camara (el de INTERNET ya viene en la
           # plantilla de "flutter create") justo antes de <application ...>
           sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA" />\n    <application#' scaffold/android/app/src/main/AndroidManifest.xml
+          # Permite trafico HTTP sin cifrar (cleartext). El backend de esta
+          # fase piloto se sirve por HTTP en la red local (sin certificado
+          # TLS), y desde Android 9 (API 28) el sistema bloquea ese trafico
+          # por defecto. Sin este permiso la app no puede conectarse al
+          # servidor aunque la IP y la red esten correctas.
+          sed -i 's#<application#<application\n        android:usesCleartextTraffic="true"#' scaffold/android/app/src/main/AndroidManifest.xml
  
       - name: Configurar la firma estable del release (keystore de produccion)
         working-directory: scaffold
@@ -182,3 +188,4 @@ jobs:
           name: app-pacora-release-apk
           path: scaffold/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+ 
