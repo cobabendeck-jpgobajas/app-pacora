@@ -51,59 +51,99 @@ jobs:
           storeFile=upload-keystore.jks
           EOF
  
-          # 3) Parchear android/app/build.gradle.kts para firmar el release con esta llave
-          #    (en vez de la llave de debug que Flutter usa por defecto)
+          # 3) Parchear el build.gradle del modulo app para firmar el release con esta llave
+          #    (en vez de la llave de debug que Flutter usa por defecto). "flutter create"
+          #    puede generar Groovy (android/app/build.gradle) o Kotlin DSL
+          #    (android/app/build.gradle.kts) segun la version de Flutter, asi que el script
+          #    detecta cual de los dos existe y aplica el parche correspondiente.
           python3 - <<'PY'
-          path = "android/app/build.gradle.kts"
+          import os
+ 
+          kts_path = "android/app/build.gradle.kts"
+          groovy_path = "android/app/build.gradle"
+ 
+          if os.path.exists(kts_path):
+              path = kts_path
+              mode = "kts"
+          elif os.path.exists(groovy_path):
+              path = groovy_path
+              mode = "groovy"
+          else:
+              raise FileNotFoundError(
+                  "No se encontro android/app/build.gradle.kts ni android/app/build.gradle; "
+                  "revisar manualmente (posible cambio de plantilla de Flutter)."
+              )
+ 
           with open(path, "r", encoding="utf-8") as f:
               content = f.read()
  
           assert "keystoreProperties" not in content, (
-              "build.gradle.kts ya contiene una configuracion de firma; revisar manualmente "
+              f"{path} ya contiene una configuracion de firma; revisar manualmente "
               "antes de continuar (posible cambio de plantilla de Flutter)."
           )
  
-          header = (
-              "import java.util.Properties\n"
-              "import java.io.FileInputStream\n\n"
-              "val keystoreProperties = Properties()\n"
-              "val keystorePropertiesFile = rootProject.file(\"key.properties\")\n"
-              "if (keystorePropertiesFile.exists()) {\n"
-              "    keystoreProperties.load(FileInputStream(keystorePropertiesFile))\n"
-              "}\n\n"
-          )
+          if mode == "kts":
+              header = (
+                  "import java.util.Properties\n"
+                  "import java.io.FileInputStream\n\n"
+                  "val keystoreProperties = Properties()\n"
+                  "val keystorePropertiesFile = rootProject.file(\"key.properties\")\n"
+                  "if (keystorePropertiesFile.exists()) {\n"
+                  "    keystoreProperties.load(FileInputStream(keystorePropertiesFile))\n"
+                  "}\n\n"
+              )
+              signing_block = (
+                  "    signingConfigs {\n"
+                  "        create(\"release\") {\n"
+                  "            keyAlias = keystoreProperties[\"keyAlias\"] as String\n"
+                  "            keyPassword = keystoreProperties[\"keyPassword\"] as String\n"
+                  "            storeFile = keystoreProperties[\"storeFile\"]?.let { file(it) }\n"
+                  "            storePassword = keystoreProperties[\"storePassword\"] as String\n"
+                  "        }\n"
+                  "    }\n\n"
+              )
+              old_signing = 'signingConfig = signingConfigs.getByName("debug")'
+              new_signing = 'signingConfig = signingConfigs.getByName("release")'
+          else:
+              header = (
+                  "def keystoreProperties = new Properties()\n"
+                  "def keystorePropertiesFile = rootProject.file('key.properties')\n"
+                  "if (keystorePropertiesFile.exists()) {\n"
+                  "    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n"
+                  "}\n\n"
+              )
+              signing_block = (
+                  "    signingConfigs {\n"
+                  "        release {\n"
+                  "            keyAlias = keystoreProperties['keyAlias']\n"
+                  "            keyPassword = keystoreProperties['keyPassword']\n"
+                  "            storeFile = keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null\n"
+                  "            storePassword = keystoreProperties['storePassword']\n"
+                  "        }\n"
+                  "    }\n\n"
+              )
+              old_signing = "signingConfig = signingConfigs.debug"
+              new_signing = "signingConfig = signingConfigs.release"
+ 
           content = header + content
  
-          signing_block = (
-              "    signingConfigs {\n"
-              "        create(\"release\") {\n"
-              "            keyAlias = keystoreProperties[\"keyAlias\"] as String\n"
-              "            keyPassword = keystoreProperties[\"keyPassword\"] as String\n"
-              "            storeFile = keystoreProperties[\"storeFile\"]?.let { file(it) }\n"
-              "            storePassword = keystoreProperties[\"storePassword\"] as String\n"
-              "        }\n"
-              "    }\n\n"
-          )
           anchor = "    defaultConfig {"
           assert content.count(anchor) == 1, (
-              "No se encontro exactamente una vez 'defaultConfig {' en build.gradle.kts; "
+              f"No se encontro exactamente una vez 'defaultConfig {{' en {path}; "
               "revisar manualmente (posible cambio de plantilla de Flutter)."
           )
           content = content.replace(anchor, signing_block + anchor, 1)
  
-          old_signing = 'signingConfig = signingConfigs.getByName("debug")'
           assert content.count(old_signing) == 1, (
-              "No se encontro exactamente una vez la firma de debug en build.gradle.kts; "
+              f"No se encontro exactamente una vez la firma de debug en {path}; "
               "revisar manualmente (posible cambio de plantilla de Flutter)."
           )
-          content = content.replace(
-              old_signing, 'signingConfig = signingConfigs.getByName("release")', 1
-          )
+          content = content.replace(old_signing, new_signing, 1)
  
           with open(path, "w", encoding="utf-8") as f:
               f.write(content)
  
-          print("build.gradle.kts actualizado correctamente con la firma de release.")
+          print(f"{path} actualizado correctamente con la firma de release (modo: {mode}).")
           PY
  
       - name: Instalar dependencias del proyecto
