@@ -1,0 +1,42 @@
+name: Build APK (App Pácora)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el codigo del repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Crear el proyecto Flutter base e incorporar el codigo de la app
+        run: |
+          flutter create --platforms=android --org com.pacora scaffold
+          rm -rf scaffold/lib
+          cp -r mobile_app/lib scaffold/lib
+          cp mobile_app/pubspec.yaml scaffold/pubspec.yaml
+          sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA" />\n    <application#' scaffold/android/app/src/main/AndroidManifest.xml
+
+      - name: Instalar dependencias del proyecto
+        working-directory: scaffold
+        run: flutter pub get
+
+      - name: Compilar APK (release)
+        working-directory: scaffold
+        run: flutter build apk --release
+
+      - name: Publicar el APK como artefacto descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-pacora-release-apk
+          path: scaffold/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
