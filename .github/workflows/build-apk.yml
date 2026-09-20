@@ -55,7 +55,9 @@ jobs:
           #    (en vez de la llave de debug que Flutter usa por defecto). "flutter create"
           #    puede generar Groovy (android/app/build.gradle) o Kotlin DSL
           #    (android/app/build.gradle.kts) segun la version de Flutter, asi que el script
-          #    detecta cual de los dos existe y aplica el parche correspondiente.
+          #    detecta cual de los dos existe y aplica el parche correspondiente. La logica
+          #    que carga key.properties se inserta DESPUES del bloque "plugins {}" (Gradle
+          #    exige que ese bloque sea lo primero en el archivo, sin sentencias antes).
           python3 - <<'PY'
           import os
  
@@ -83,9 +85,10 @@ jobs:
           )
  
           if mode == "kts":
-              header = (
-                  "import java.util.Properties\n"
-                  "import java.io.FileInputStream\n\n"
+              # Los "import" si pueden ir antes de plugins {}; son declaraciones del
+              # lenguaje Kotlin, no sentencias ejecutables para Gradle.
+              top_imports = "import java.util.Properties\nimport java.io.FileInputStream\n\n"
+              load_block = (
                   "val keystoreProperties = Properties()\n"
                   "val keystorePropertiesFile = rootProject.file(\"key.properties\")\n"
                   "if (keystorePropertiesFile.exists()) {\n"
@@ -105,7 +108,8 @@ jobs:
               old_signing = 'signingConfig = signingConfigs.getByName("debug")'
               new_signing = 'signingConfig = signingConfigs.getByName("release")'
           else:
-              header = (
+              top_imports = ""
+              load_block = (
                   "def keystoreProperties = new Properties()\n"
                   "def keystorePropertiesFile = rootProject.file('key.properties')\n"
                   "if (keystorePropertiesFile.exists()) {\n"
@@ -125,14 +129,26 @@ jobs:
               old_signing = "signingConfig = signingConfigs.debug"
               new_signing = "signingConfig = signingConfigs.release"
  
-          content = header + content
+          # Gradle exige que el bloque plugins {} sea lo primero del archivo (aparte de
+          # buildscript {} / pluginManagement {}); por eso el codigo que carga
+          # key.properties se inserta justo ANTES de "android {" y no al inicio del
+          # archivo (eso fue exactamente lo que fallo en el intento anterior).
+          android_anchor = "android {"
+          assert content.count(android_anchor) == 1, (
+              f"No se encontro exactamente una vez '{android_anchor}' en {path}; "
+              "revisar manualmente (posible cambio de plantilla de Flutter)."
+          )
+          content = content.replace(android_anchor, load_block + android_anchor, 1)
  
-          anchor = "    defaultConfig {"
-          assert content.count(anchor) == 1, (
+          if top_imports:
+              content = top_imports + content
+ 
+          defaultconfig_anchor = "    defaultConfig {"
+          assert content.count(defaultconfig_anchor) == 1, (
               f"No se encontro exactamente una vez 'defaultConfig {{' en {path}; "
               "revisar manualmente (posible cambio de plantilla de Flutter)."
           )
-          content = content.replace(anchor, signing_block + anchor, 1)
+          content = content.replace(defaultconfig_anchor, signing_block + defaultconfig_anchor, 1)
  
           assert content.count(old_signing) == 1, (
               f"No se encontro exactamente una vez la firma de debug en {path}; "
