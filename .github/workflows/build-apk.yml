@@ -23,7 +23,7 @@ jobs:
           rm -rf scaffold/lib
           cp -r mobile_app/lib scaffold/lib
           cp mobile_app/pubspec.yaml scaffold/pubspec.yaml
-          sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA" />\n    <application#' scaffold/android/app/src/main/AndroidManifest.xml
+          sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.INTERNET" />\n    <application#' scaffold/android/app/src/main/AndroidManifest.xml
           sed -i 's#<application#<application\n        android:usesCleartextTraffic="true"#' scaffold/android/app/src/main/AndroidManifest.xml
 
       - name: Verificar AndroidManifest.xml
