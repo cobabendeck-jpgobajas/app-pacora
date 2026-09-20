@@ -66,6 +66,30 @@ class ApiClient {
     }
   }
 
+  /// Igual que [verificarConexion], pero en vez de devolver solo un booleano
+  /// devuelve el detalle tecnico exacto del fallo (excepcion o codigo de
+  /// respuesta). Se usa unicamente en la pantalla de Ajustes para poder
+  /// diagnosticar problemas de conexion sin adivinar -- devuelve `null`
+  /// cuando la conexion fue exitosa.
+  Future<String?> probarConexionDetallada() async {
+    String baseUrl;
+    try {
+      baseUrl = await AppConfig.getBaseUrl();
+    } catch (e) {
+      return 'No se pudo leer la direccion guardada: $e';
+    }
+    try {
+      final resp = await http
+          .get(Uri.parse('$baseUrl/health'))
+          .timeout(const Duration(seconds: 6));
+      if (resp.statusCode == 200) return null;
+      return 'El servidor respondio con codigo ${resp.statusCode} '
+          '(se esperaba 200).';
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
   Future<PrediccionResult> predecir(File imagen) async {
     final baseUrl = await AppConfig.getBaseUrl();
     final uri = Uri.parse('$baseUrl/predict');
