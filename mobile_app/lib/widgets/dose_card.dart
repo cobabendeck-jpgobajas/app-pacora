@@ -1,64 +1,49 @@
-import 'package:flutter/material.dart';
+from typing import Optional
+from pydantic import BaseModel, Field
 
-/// Tarjeta grande y clara con la dosis predicha, pensada para leerse de
-/// un vistazo en planta (el plan exige que la prediccion tome menos de
-/// 5 minutos de principio a fin, asi que la respuesta debe ser inmediata
-/// de interpretar).
-class DoseCard extends StatelessWidget {
-  final double dosisMgL;
-  final String modelo;
 
-  const DoseCard({super.key, required this.dosisMgL, required this.modelo});
+class PrediccionOut(BaseModel):
+    id: int
+    dosis_predicha_mg_l: float
+    jarra_recomendada: int = Field(
+        description="Numero de jarra del protocolo de laboratorio (solucion madre 10 000 mg/L, "
+                    "N mL por cada 100 mL de jarra) equivalente a la dosis predicha: "
+                    "jarra = dosis_predicha_mg_l / 100, redondeado al entero mas cercano. "
+                    "El operario usa este numero -junto con el caudal real de la planta en el "
+                    "momento- para calcular manualmente la cantidad de producto a dosificar; "
+                    "el proyecto automatiza la prueba de jarras (45 min), no ese calculo final.",
+    )
+    turbiedad_estimada_unt: Optional[float] = Field(
+        default=None,
+        description="Turbiedad estimada por el modelo (UNT), dato complementario a la dosis. "
+                    "Puede ser null si el modelo de turbiedad no esta disponible en el servidor.",
+    )
+    modelo: str
+    features: dict
+    filename: str
 
-  @override
-  Widget build(BuildContext context) {
-    final color = _colorPorDosis(dosisMgL);
-    return Card(
-      elevation: 3,
-      color: color.withOpacity(0.08),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: color.withOpacity(0.5), width: 1.5),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
-        child: Column(
-          children: [
-            Text(
-              'DOSIS SUGERIDA',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    letterSpacing: 1.2,
-                    color: color,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${dosisMgL.toStringAsFixed(0)} mg/L',
-              style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Sulfato de aluminio · modelo: $modelo',
-              style: Theme.of(context).textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  /// Colores puramente orientativos (no clinicos): agrupan la dosis en
-  /// las mismas tres bandas 200/300/400 mg/L que usa el modelo (ver
-  /// 01_construir_dataset.py, BLOCK_DOSE), solo para que el operario
-  /// distinga de un vistazo si es una dosis baja, media o alta.
-  Color _colorPorDosis(double dosis) {
-    if (dosis <= 250) return Colors.green.shade700;
-    if (dosis <= 350) return Colors.orange.shade800;
-    return Colors.red.shade700;
-  }
-}
+class PrediccionDB(BaseModel):
+    id: int
+    creado_en: str
+    filename: str
+    image_path: str
+    dosis_predicha_mg_l: float
+    turbiedad_estimada_unt: Optional[float] = None
+    modelo: str
+    dosis_real_mg_l: Optional[float] = None
+    turbiedad_real_unt: Optional[float] = None
+    verificado_en: Optional[str] = None
+
+
+class VerificacionIn(BaseModel):
+    dosis_real_mg_l: Optional[float] = Field(
+        default=None, description="Dosis realmente aplicada en planta (mg/L), si se conoce")
+    turbiedad_real_unt: Optional[float] = Field(
+        default=None, description="Turbiedad medida con turbidimetro (UNT/NTU), si se conoce")
+
+
+class HealthOut(BaseModel):
+    status: str
+    modelo: str
+    caracteristicas_esperadas: list
