@@ -1,5 +1,5 @@
 name: Build APK (App Pácora)
- 
+
 # Compila el APK de Android en un runner de GitHub (Ubuntu), sin que el
 # usuario necesite instalar Flutter/Android SDK en su propia maquina.
 # Se dispara automaticamente al hacer push a main, o manualmente desde la
@@ -8,42 +8,49 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch: {}
- 
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Descargar el codigo del repositorio
         uses: actions/checkout@v4
- 
+
       - name: Configurar Java (requerido por Gradle/Android)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
- 
+
       - name: Instalar Flutter SDK
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.2'
           channel: 'stable'
- 
+
       - name: Crear el proyecto Flutter base e incorporar el codigo de la app
         run: |
           flutter create --platforms=android --org com.pacora scaffold
           rm -rf scaffold/lib
           cp -r mobile_app/lib scaffold/lib
           cp mobile_app/pubspec.yaml scaffold/pubspec.yaml
-          # Agrega el permiso de camara (el de INTERNET ya viene en la
-          # plantilla de "flutter create") justo antes de <application ...>
-          sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA" />\n    <application#' scaffold/android/app/src/main/AndroidManifest.xml
+          # Agrega los permisos de camara e INTERNET justo antes de
+          # <application ...>. El permiso INTERNET NO viene incluido por
+          # defecto en un build de "release" (Flutter solo lo agrega
+          # automaticamente para variantes debug/profile, pensadas para
+          # desarrollo). Sin este permiso, cualquier intento de conexion de
+          # red en la app falla de inmediato con un error de sistema
+          # operativo (SocketException, errno = 1, "Operation not
+          # permitted"), sin que sea un problema de la red, del servidor ni
+          # de la IP configurada.
+          sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.INTERNET" />\n    <application#' scaffold/android/app/src/main/AndroidManifest.xml
           # Permite trafico HTTP sin cifrar (cleartext). El backend de esta
           # fase piloto se sirve por HTTP en la red local (sin certificado
           # TLS), y desde Android 9 (API 28) el sistema bloquea ese trafico
           # por defecto. Sin este permiso la app no puede conectarse al
           # servidor aunque la IP y la red esten correctas.
           sed -i 's#<application#<application\n        android:usesCleartextTraffic="true"#' scaffold/android/app/src/main/AndroidManifest.xml
- 
+
       - name: Configurar la firma estable del release (keystore de produccion)
         working-directory: scaffold
         env:
@@ -54,7 +61,7 @@ jobs:
         run: |
           # 1) Restaurar el keystore (guardado como secreto en base64) dentro del modulo android/app
           echo "$SIGNING_KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
- 
+
           # 2) Generar android/key.properties con las credenciales (nunca se versiona en el repo)
           cat > android/key.properties <<EOF
           storePassword=$SIGNING_STORE_PASSWORD
@@ -62,7 +69,7 @@ jobs:
           keyAlias=$SIGNING_KEY_ALIAS
           storeFile=upload-keystore.jks
           EOF
- 
+
           # 3) Parchear el build.gradle del modulo app para firmar el release con esta llave
           #    (en vez de la llave de debug que Flutter usa por defecto). "flutter create"
           #    puede generar Groovy (android/app/build.gradle) o Kotlin DSL
@@ -72,10 +79,10 @@ jobs:
           #    exige que ese bloque sea lo primero en el archivo, sin sentencias antes).
           python3 - <<'PY'
           import os
- 
+
           kts_path = "android/app/build.gradle.kts"
           groovy_path = "android/app/build.gradle"
- 
+
           if os.path.exists(kts_path):
               path = kts_path
               mode = "kts"
@@ -87,15 +94,15 @@ jobs:
                   "No se encontro android/app/build.gradle.kts ni android/app/build.gradle; "
                   "revisar manualmente (posible cambio de plantilla de Flutter)."
               )
- 
+
           with open(path, "r", encoding="utf-8") as f:
               content = f.read()
- 
+
           assert "keystoreProperties" not in content, (
               f"{path} ya contiene una configuracion de firma; revisar manualmente "
               "antes de continuar (posible cambio de plantilla de Flutter)."
           )
- 
+
           if mode == "kts":
               # Los "import" si pueden ir antes de plugins {}; son declaraciones del
               # lenguaje Kotlin, no sentencias ejecutables para Gradle.
@@ -140,7 +147,7 @@ jobs:
               )
               old_signing = "signingConfig = signingConfigs.debug"
               new_signing = "signingConfig = signingConfigs.release"
- 
+
           # Gradle exige que el bloque plugins {} sea lo primero del archivo (aparte de
           # buildscript {} / pluginManagement {}); por eso el codigo que carga
           # key.properties se inserta justo ANTES de "android {" y no al inicio del
@@ -151,41 +158,40 @@ jobs:
               "revisar manualmente (posible cambio de plantilla de Flutter)."
           )
           content = content.replace(android_anchor, load_block + android_anchor, 1)
- 
+
           if top_imports:
               content = top_imports + content
- 
+
           defaultconfig_anchor = "    defaultConfig {"
           assert content.count(defaultconfig_anchor) == 1, (
               f"No se encontro exactamente una vez 'defaultConfig {{' en {path}; "
               "revisar manualmente (posible cambio de plantilla de Flutter)."
           )
           content = content.replace(defaultconfig_anchor, signing_block + defaultconfig_anchor, 1)
- 
+
           assert content.count(old_signing) == 1, (
               f"No se encontro exactamente una vez la firma de debug en {path}; "
               "revisar manualmente (posible cambio de plantilla de Flutter)."
           )
           content = content.replace(old_signing, new_signing, 1)
- 
+
           with open(path, "w", encoding="utf-8") as f:
               f.write(content)
- 
+
           print(f"{path} actualizado correctamente con la firma de release (modo: {mode}).")
           PY
- 
+
       - name: Instalar dependencias del proyecto
         working-directory: scaffold
         run: flutter pub get
- 
+
       - name: Compilar APK (release)
         working-directory: scaffold
         run: flutter build apk --release
- 
+
       - name: Publicar el APK como artefacto descargable
         uses: actions/upload-artifact@v4
         with:
           name: app-pacora-release-apk
           path: scaffold/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
- 
