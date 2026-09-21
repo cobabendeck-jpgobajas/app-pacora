@@ -54,11 +54,21 @@ class ApiClient {
   final Duration timeout;
   ApiClient({this.timeout = const Duration(seconds: 30)});
 
+  /// Cabecera requerida cuando el backend se expone a traves de un tunel
+  /// temporal (ngrok): sin ella, el plan gratuito de ngrok intercepta la
+  /// primera peticion con una pagina HTML de advertencia en vez de dejarla
+  /// pasar al servidor real, lo que rompe la app aunque la URL este bien
+  /// escrita. En un backend sin ngrok (IP local o nube propia) esta
+  /// cabecera es inofensiva: el servidor simplemente la ignora.
+  static const Map<String, String> _headersBase = {
+    'ngrok-skip-browser-warning': 'true',
+  };
+
   Future<bool> verificarConexion() async {
     try {
       final baseUrl = await AppConfig.getBaseUrl();
       final resp = await http
-          .get(Uri.parse('$baseUrl/health'))
+          .get(Uri.parse('$baseUrl/health'), headers: _headersBase)
           .timeout(const Duration(seconds: 6));
       return resp.statusCode == 200;
     } catch (_) {
@@ -80,7 +90,7 @@ class ApiClient {
     }
     try {
       final resp = await http
-          .get(Uri.parse('$baseUrl/health'))
+          .get(Uri.parse('$baseUrl/health'), headers: _headersBase)
           .timeout(const Duration(seconds: 6));
       if (resp.statusCode == 200) return null;
       return 'El servidor respondio con codigo ${resp.statusCode} '
@@ -95,6 +105,7 @@ class ApiClient {
     final uri = Uri.parse('$baseUrl/predict');
 
     final request = http.MultipartRequest('POST', uri);
+    request.headers.addAll(_headersBase);
     request.files.add(
       await http.MultipartFile.fromPath('imagen', imagen.path),
     );
@@ -133,7 +144,7 @@ class ApiClient {
     final resp = await http
         .patch(
           uri,
-          headers: {'Content-Type': 'application/json'},
+          headers: {..._headersBase, 'Content-Type': 'application/json'},
           body: jsonEncode(body),
         )
         .timeout(timeout);
